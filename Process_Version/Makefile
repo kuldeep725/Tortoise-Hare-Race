@@ -1,5 +1,8 @@
-all : god.out tortoise.out hare.out reporter.out
+all : driver.out god.out tortoise.out hare.out reporter.out
 	  
+driver.out 	  : driver.cpp
+				g++ driver.cpp -o driver.out
+				
 god.out 	  : god.cpp
 		  		g++ god.cpp -o god.out
 
@@ -11,3 +14,6 @@ hare.out      :	hare.cpp
 
 reporter.out  : reporter.cpp
 			    g++ reporter.cpp -o reporter.out
+
+clean : 
+		rm *.out

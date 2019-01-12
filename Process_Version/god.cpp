@@ -3,41 +3,24 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <sys/wait.h>
 
 using namespace std;
 
-const char *hare_fifo       = "/tmp/hare_fifo";
-const char *tortoise_fifo   = "/tmp/tortoise_fifo";
-char *tortoise_args[] = { "./tortoise.out", NULL };
-char *hare_args[]     = { "./hare.out", NULL };
-char *reporter_args[] = { "./reporter.out", NULL };
+const char *driver_god = "/tmp/driver_god";
 
 int main() {
 
-    // creating two fifo : one for hare, other for tortoise
-    mkfifo(tortoise_fifo, 0666);
-    mkfifo(hare_fifo, 0666);
-
-    int tortoise_write = open(tortoise_fifo, O_WRONLY);
-    int hare_write     = open(hare_fifo, O_WRONLY);
-    int x = 0;
-
-    // Calling tortoise
-    if(fork() == 0) {
-        write(tortoise_write, &x, sizeof(int));
-        execv (tortoise_args[0], tortoise_args);
-    }
-    // Calling Hare 
-    if(fork() == 0) {
-        write(hare_write, &x, sizeof(int));
-        execv (hare_args[0], hare_args);
-    }
-    // Calling Reporter
-    if(fork() == 0) {
-        execv (reporter_args[0], reporter_args);
-    }
+    int tortoise, hare;
+    int write_god = open(driver_god, O_WRONLY);
+    cout<<"Give new position for tortoise : ";
+    cin>>tortoise;
+    cout<<"Give new position for hare : ";
+    cin>>hare;
+    write(write_god, &tortoise, sizeof(int));
+    write(write_god, &hare, sizeof(int));
     
-    close(tortoise_write);
-    close(hare_write);
+    close(write_god);
     return 0;
+    
 }
