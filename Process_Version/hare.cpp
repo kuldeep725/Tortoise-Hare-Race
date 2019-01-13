@@ -18,9 +18,9 @@ const char *driver_reporter_rw  = "/tmp/driver_reporter_rw";
 
 int main() {
 
-    int read_driver            = open(driver_hare_wr    , O_RDONLY);
-    int write_driver           = open(driver_hare_rw    , O_WRONLY);
-    int read_tortoise          = open(hare_tortoise, O_RDONLY);
+    int read_driver    = open(driver_hare_wr    , O_RDONLY);
+    int write_driver   = open(driver_hare_rw    , O_WRONLY);
+    int read_tortoise  = open(hare_tortoise, O_RDONLY);
 
     int hare = 0;
     int tortoise = 0;
@@ -31,6 +31,11 @@ int main() {
 
     // reader for hare_tortoise pipe
     while(true) {
+        /* To make hare sleep for some time, sleep_counter is being used. Initially, sleep_counter
+           is initialized with -1. When distance between hare and tortoise exceeds MIN_DIST_FOR_SLEEP,
+           then sleep_counter is set to 0. Then, "if block" below will be executed. This "if block"
+           will run for <SLEEP_TIME> times, then we will again set sleep_counter to -1.
+        */
         if(sleep_counter != -1) {
             sleep_counter++;
             read(read_driver, &hare, sizeof(int));

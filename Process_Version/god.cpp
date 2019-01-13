@@ -17,6 +17,7 @@ int main() {
     cin>>tortoise;
     cout<<"Give new position for hare : ";
     cin>>hare;
+    
     write(write_god, &tortoise, sizeof(int));
     write(write_god, &hare, sizeof(int));
     
