@@ -14,7 +14,7 @@
 >> When God comes into play, God halts the other three threads using mutexes :
    1. God halts hare and tortoise threads so that "tortoise and hare do not reach to the end
       while God is making decision"
-   2. God halts reporter processes so that "reporter do not report in between god is making 
+   2. God halts reporter processes so that "reporter do not report in between when god is making 
       decision";"
 >> Parent process waits for the all the four threads to complete and then it declares who is the
    winner.
@@ -26,14 +26,18 @@
 
 using namespace std;
 
-// counters for tortoise and hare
-int hare = 0;
-int tortoise = 0;
+// distance counters for tortoise and hare
+long hare = 0;
+long tortoise = 0;
+// time counter for tortoise and hare
+long hare_time = 0;
+long tortoise_time = 0;
 
 // constants used in the program
-const int TARGET = 300000;
-const int STEPS = 300;
-const int MIN_DIST_FOR_SLEEP = 100000;
+// these constants can be tweaked to see various cases
+const long TARGET = 5e8;
+const long STEPS = 5;
+const long MIN_DIST_FOR_SLEEP = 1e8;
 
 // mutex to write value of tortoise
 pthread_mutex_t tortoise_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -42,66 +46,93 @@ pthread_mutex_t hare_mutex     = PTHREAD_MUTEX_INITIALIZER;
 // mutex to write in the terminal
 pthread_mutex_t terminal_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+//Utility function
+long getRandomPosition() {
+    return rand() % (TARGET+1);
+}
+
 // thread for tortoise
 void *tortoise_turn(void *args) {
 
-    while(tortoise < TARGET && hare < TARGET) {
-        pthread_mutex_lock(&tortoise_mutex);
+    while(tortoise < TARGET) {
+        pthread_mutex_lock (&tortoise_mutex);
         tortoise++;
-        pthread_mutex_unlock(&tortoise_mutex);
+        tortoise_time++;
+        pthread_mutex_unlock (&tortoise_mutex);
     }
     return (void *) 0;
+
 }
 
 // thread for hare
 void *hare_turn(void *args) {
 
-    while(tortoise < TARGET && hare < TARGET) {
+    while(hare < TARGET) {
         if(hare-tortoise >= MIN_DIST_FOR_SLEEP) {
-            /* initialize random seed */
-            srand (time(NULL));
-            int random_sleep = rand()%500 + 500;
+            // hare sleeps for a random amount of time
+            long sleep_time = rand()%(100000);
+            hare_time += sleep_time;
+
+            long random_sleep = rand()%1000; // between 0 and 999
             // make hare sleep for a random time
             usleep(random_sleep);
         }
-        pthread_mutex_lock(&hare_mutex);
+        pthread_mutex_lock (&hare_mutex);
         hare += STEPS;
-        pthread_mutex_unlock(&hare_mutex);
+        hare_time++;
+        pthread_mutex_unlock (&hare_mutex);
     }
     return (void *) 0;
+
 }
 
 // thread for reporter
 void *reporter_turn(void *args) {
 
-    while(tortoise < TARGET && hare < TARGET) {
-        pthread_mutex_lock(&terminal_mutex);
-        cout<<"\n========= STATUS ===========\n";
-        cout<<"\nTortoise = "<< tortoise;
-        cout<<"\nHare     = "<< hare<<"\n";
-        pthread_mutex_unlock(&terminal_mutex);
+    while(tortoise < TARGET || hare < TARGET) {
+        pthread_mutex_lock (&terminal_mutex);
+
+        cout << "\n================= RACE STATUS ==================\n";
+        cout << "\n Tortoise is at position : " << tortoise   << "\t, at time : "
+             << tortoise_time << " iterations";
+        cout << "\n Hare is at position     : " << hare       << "\t, at time : " 
+             << hare_time     << " iterations\n";
+
+        pthread_mutex_unlock (&terminal_mutex);
         usleep(500);
     }
     return (void *) 0;
+
 }
 
 // thread for god
 void *god_turn(void *args) {
 
-    while(tortoise < TARGET && hare < TARGET) {
+    while(tortoise < TARGET || hare < TARGET) {
         // halt reporter, tortoise and hare using mutex
-        pthread_mutex_lock(&terminal_mutex);
-        pthread_mutex_lock(&tortoise_mutex);
-        pthread_mutex_lock(&hare_mutex);
+        pthread_mutex_lock (&terminal_mutex);
+        pthread_mutex_lock (&tortoise_mutex);
+        pthread_mutex_lock (&hare_mutex);
 
-        char choice;
-        cout<<"God, do you want to change positions ? (y/n)\n>> ";
-        cin>>choice;
-        if(choice != 'y') {
+        if(( (double) rand() / (RAND_MAX) ) >= 0.75) {
+            cout<<"\n God has changed positions...\n";
+            cout<<"\n========= NEW POSITIONS ===========\n\n";
+            if(tortoise < TARGET) {
+                tortoise = getRandomPosition();
+                cout<<" Tortoise = "<< tortoise << "\n";
+            }
+            if(hare < TARGET) {
+                hare     = getRandomPosition();
+                cout<<" Hare     = "<< hare << "\n";
+            }
 
-            pthread_mutex_unlock(&terminal_mutex);
-            pthread_mutex_unlock(&tortoise_mutex);
-            pthread_mutex_unlock(&hare_mutex);
+        } else {
+
+            // unlock all mutexes locked by god
+            pthread_mutex_unlock (&terminal_mutex);
+            pthread_mutex_unlock (&tortoise_mutex);
+            pthread_mutex_unlock (&hare_mutex);
+
             // when god doesn't want to change the positions of hare and tortoise,
             // then we will allow god to sleep for a while
             usleep(500);
@@ -109,44 +140,49 @@ void *god_turn(void *args) {
 
         }
 
-        cout<<"Give new position for tortoise : ";
-        cin>>tortoise;
-        cout<<"Give new position for hare : ";
-        cin>>hare;
-
-        //
-        pthread_mutex_unlock(&terminal_mutex);
-        pthread_mutex_unlock(&tortoise_mutex);
-        pthread_mutex_unlock(&hare_mutex);
+        pthread_mutex_unlock (&terminal_mutex);
+        pthread_mutex_unlock (&tortoise_mutex);
+        pthread_mutex_unlock (&hare_mutex);
     
     }
     return (void *) 0;
+
 }
 
 // main function
 int main() {
 
+    /* initialize random seed */
+    srand (time(NULL));
+
     // thread ids for tortoise, hare, reporter, god threads
     pthread_t tortoise_tid, hare_tid, reporter_tid, god_tid;
 
     // creating four threads
-    pthread_create(&tortoise_tid, NULL, tortoise_turn, NULL);
-    pthread_create(&hare_tid, NULL, hare_turn, NULL);
-    pthread_create(&reporter_tid, NULL, reporter_turn, NULL);
-    pthread_create(&god_tid, NULL, god_turn, NULL);
+    pthread_create (&tortoise_tid, NULL, tortoise_turn, NULL);
+    pthread_create (&hare_tid, NULL, hare_turn, NULL);
+    pthread_create (&reporter_tid, NULL, reporter_turn, NULL);
+    pthread_create (&god_tid, NULL, god_turn, NULL);
 
     // wait for each thread to finish their execution
-    pthread_join(tortoise_tid, NULL);
-    pthread_join(hare_tid, NULL);
-    pthread_join(reporter_tid, NULL);
-    pthread_join(god_tid, NULL);
+    pthread_join (tortoise_tid, NULL);
+    pthread_join (hare_tid, NULL);
+    pthread_join (reporter_tid, NULL);
+    pthread_join (god_tid, NULL);
 
-    // print who has won the race
-    if(tortoise >= TARGET) {
-        cout << "WINNER is tortoise\n";
+    cout<< "\n======================= RACE IS OVER ===========================\n";
+    cout<< "\n The results are as follows : \n\n";
+    cout<< "\tTime taken by tortoise : " << tortoise_time << " iterations\n";
+    cout<< "\tTime taken by hare     : " << hare_time << " iterations\n";
+
+    if (tortoise_time < hare_time) {
+        cout << "\n\tWINNER of the race is 'tortoise'\n";
+    } else if (tortoise_time > hare_time) {
+        cout << "\n\tWINNER of the race is 'hare'.\n";
     } else {
-        cout << "WINNER is hare\n";
+        cout << "\n\tThe race is drawn\n";
     }
-
+    cout<< "\n================================================================\n";
     return 0;
+
 }
